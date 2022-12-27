@@ -1,0 +1,51 @@
+{
+    "Units": {
+        "POL":
+        {
+            "Podmuchy_wiatru": "km/h",
+            "Predkosc_wiatru": "km/h",
+            "Temperatura": "°C",
+            "Widocznosc": "km",
+            "Wilgotnosc": "%",
+            "Zachmurzenie": "%",
+            "Sila_wiatru": "°",
+            "Opad_atmosferyczny": "mm"
+        },
+        "ENG":
+        {
+            "Wind_Blow": "km/h",
+            "Wind_Speed": "km/h",
+            "Temperature": "°C",
+            "Visibility": "km",
+            "Humidity": "%",
+            "Overcast": "%",
+            "Wind_Power": "°",
+            "Precipitation": "mm"
+        }
+    },
+    "Renames" : {
+        "POL":
+        {
+            "Kierunek wiatru": "Kierunek_Wiatru",
+            "Podmuchy wiatru": "Podmuchy_Wiatru",
+            "Prędkość wiatru": "Predkosc_Wiatru",
+            "Widoczność": "Widocznosc",
+            "Wilgotność": "Wilgotnosc",
+            "Siła wiatru": "Sila_Wiatru",
+            "Opad atmosferyczny": "Opad_Atmosferyczny"
+        },
+        "ENG":
+        {
+            "Kierunek wiatru": "Wind_Direction",
+            "Podmuchy wiatru": "Wind_Blow",
+            "Pogoda": "Weather_Description",
+            "Prędkość wiatru": "Wind_Speed",
+            "Temperatura": "Temperature",
+            "Widoczność": "Visibility",
+            "Wilgotność": "Humidity",
+            "Zachmurzenie": "Overcast",
+            "Siła wiatru": "Wind_Power",
+            "Opad atmosferyczny": "Precipitation"
+        }
+    }
+}
