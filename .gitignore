@@ -1,5 +1,5 @@
 # Byte-compiled / optimized / DLL files
-__pycache__/
+__pycache__
 *.py[cod]
 *$py.class
 *.idea
@@ -7,6 +7,9 @@ __pycache__/
 
 # C extensions
 *.so
+
+*.ipynb
+*_copy?*
 
 # logs
 logs

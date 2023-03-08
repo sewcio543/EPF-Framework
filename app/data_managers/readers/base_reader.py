@@ -1,9 +1,11 @@
 from abc import ABC, abstractmethod
+from typing import Optional, Union
 
 import pandas as pd
 
 from ..namespaces import data_ns
 from ..utils import SourceMetaData
+from .scraping.base_scraper import BaseScraper
 
 
 class BaseReader(ABC):
@@ -26,11 +28,11 @@ class BaseReader(ABC):
         ...
 
     @abstractmethod
-    def _read_file(self, file: str) -> pd.DataFrame:
+    def _read_source(self, source: str) -> pd.DataFrame:
         """Reads input data file and returns raw DataFrame"""
         ...
 
-    def read(self, file: str) -> pd.DataFrame:
+    def read(self, source: Union[str, list[str]]) -> pd.DataFrame:
         """Reads and formats input data
 
         Args:
@@ -39,12 +41,20 @@ class BaseReader(ABC):
         Returns:
             pd.DataFrame: Formatted DataFrame
         """
-        df = self._read_file(file=file)
-        df = self._rename_columns(data=df)
-        df = self._cast_to_str(data=df)
-        df = self._format(data=df)
-        df = self._drop_redundant_columns(data=df)
-        df = self._set_time_index(data=df)
+        df = self._read(source=source)
+        df = self._rename_columns(df)
+        df = self._cast_to_str(df)
+        df = self._format(df)
+        df = self._drop_redundant_columns(df)
+        self._check_data(df)
+        df = self._set_time_index(df)
+        df = self._drop_duplicated_index(df)
+        return df
+
+    def _read(self, source: Union[str, list[str]]) -> pd.DataFrame:
+        if isinstance(source, str):
+            source = [source]
+        df = pd.concat((self._read_source(file) for file in source), ignore_index=True)
         return df
 
     def _cast_to_str(self, data: pd.DataFrame) -> pd.DataFrame:
@@ -59,6 +69,13 @@ class BaseReader(ABC):
         df = data.copy()
         df = df.rename(self._meta.renames, axis=1)
         return df
+
+    def _check_data(self, data: pd.DataFrame) -> None:
+        missing_cols = [
+            col for col in self._meta.numeric_cols if col not in data.columns
+        ]
+        assert not missing_cols, f"{missing_cols} columns are missing"
+        assert data_ns.TIME in data.columns, f"missing {data_ns.TIME} column"
 
     def _drop_redundant_columns(self, data: pd.DataFrame) -> pd.DataFrame:
         """Drops redundant columns that are not numeric, id or time"""
@@ -75,6 +92,9 @@ class BaseReader(ABC):
         df = df.set_index(data_ns.TIME)
         return df
 
+    def _drop_duplicated_index(self, data: pd.DataFrame) -> pd.DataFrame:
+        return data.groupby(level=0).last()
+
 
 class CSVReader(BaseReader):
     """Abstract class for reading csv files"""
@@ -82,9 +102,9 @@ class CSVReader(BaseReader):
     _SEP = ","
     _READ_KWARGS = {}
 
-    def _read_file(self, file: str) -> pd.DataFrame:
+    def _read_source(self, source: str) -> pd.DataFrame:
         kwargs = {"sep": self._SEP} | self._READ_KWARGS
-        return pd.read_csv(file, **kwargs)
+        return pd.read_csv(source, **kwargs)
 
 
 class ExcelReader(BaseReader):
@@ -92,5 +112,29 @@ class ExcelReader(BaseReader):
 
     _READ_KWARGS = {}
 
-    def _read_file(self, file: str) -> pd.DataFrame:
-        return pd.read_excel(file, **self._READ_KWARGS)
+    def _read_source(self, source: str) -> pd.DataFrame:
+        return pd.read_excel(source, **self._READ_KWARGS)
+
+
+class WebScraper(BaseReader):
+    """Abstract class for scraping data from Web"""
+
+    SOURCE: Union[str, list[str]]
+
+    def __init__(
+        self,
+        source: str,
+        driver: Optional[str] = None,
+        headless: bool = True,
+        wait_time: int = 5,
+        verbose: bool = False,
+        load_time: float = 0.1,
+    ) -> None:
+        super().__init__(source)
+        self._scraper = BaseScraper(
+            driver=driver,
+            headless=headless,
+            wait_time=wait_time,
+            verbose=verbose,
+            load_time=load_time,
+        )

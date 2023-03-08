@@ -11,7 +11,7 @@ sources_ns = Namespace(
             "Godz.": data_ns.HOUR,
             "Data": data_ns.DATE,
         },
-        data_ns.FREQ: "D",
+        data_ns.FREQ: "H",
     },
     ENERGY_PRICE={
         data_ns.NUMERIC_COLUMNS: [data_ns.VALUE],
@@ -20,7 +20,7 @@ sources_ns = Namespace(
             "Godzina": data_ns.HOUR,
             "Data": data_ns.DATE,
         },
-        data_ns.FREQ: "D",
+        data_ns.FREQ: "H",
     },
     WEATHER={
         data_ns.NUMERIC_COLUMNS: [
@@ -41,6 +41,16 @@ sources_ns = Namespace(
             "Zachmurzenie": "Overcast",
             "Opad atmosferyczny": "Precipitation",
             "Time": data_ns.TIME,
+        },
+        data_ns.FREQ: "H",
+    },
+    FUEL_PRICES={
+        data_ns.NUMERIC_COLUMNS: [
+            data_ns.VALUE
+        ],
+        data_ns.RENAMES: {
+            "Data zmiany": data_ns.TIME,
+            "Cena": data_ns.VALUE
         },
         data_ns.FREQ: "D",
     },
