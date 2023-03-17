@@ -13,10 +13,19 @@ sources_ns = Namespace(
         },
         data_ns.FREQ: "H",
     },
-    ENERGY_PRICE={
+    ENERGY_MARKET_PRICE={
         data_ns.NUMERIC_COLUMNS: [data_ns.VALUE],
         data_ns.RENAMES: {
             "RCE": data_ns.VALUE,
+            "Godzina": data_ns.HOUR,
+            "Data": data_ns.DATE,
+        },
+        data_ns.FREQ: "H",
+    },
+    ENERGY_SETTLEMENT_PRICE={
+        data_ns.NUMERIC_COLUMNS: [data_ns.VALUE],
+        data_ns.RENAMES: {
+            "CRO": data_ns.VALUE,
             "Godzina": data_ns.HOUR,
             "Data": data_ns.DATE,
         },
@@ -45,13 +54,8 @@ sources_ns = Namespace(
         data_ns.FREQ: "H",
     },
     FUEL_PRICES={
-        data_ns.NUMERIC_COLUMNS: [
-            data_ns.VALUE
-        ],
-        data_ns.RENAMES: {
-            "Data zmiany": data_ns.TIME,
-            "Cena": data_ns.VALUE
-        },
+        data_ns.NUMERIC_COLUMNS: [data_ns.VALUE],
+        data_ns.RENAMES: {"Data zmiany": data_ns.TIME, "Cena": data_ns.VALUE},
         data_ns.FREQ: "D",
     },
 )

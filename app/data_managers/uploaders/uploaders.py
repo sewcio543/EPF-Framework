@@ -21,7 +21,8 @@ class BaseUploader(ABC):
         existing = self._read() if self._exist else pd.DataFrame()
         new = data.loc[~data.index.isin(existing.index)]
         concat = pd.concat((existing, new)).sort_index()
-        self._copy_file()
+        if self._exist:
+            self._copy_file()
         self._upload(concat)
 
     def _copy_file(self) -> None:

@@ -104,7 +104,7 @@ class CSVReader(BaseReader):
 
     def _read_source(self, source: str) -> pd.DataFrame:
         kwargs = {"sep": self._SEP} | self._READ_KWARGS
-        return pd.read_csv(source, **kwargs)
+        return pd.read_csv(source, encoding="windows-1252", **kwargs)
 
 
 class ExcelReader(BaseReader):

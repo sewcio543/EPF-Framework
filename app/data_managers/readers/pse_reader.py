@@ -79,7 +79,7 @@ class PSEReader(CSVReader):
     def _format_numeric_columns(self, data: pd.DataFrame) -> pd.DataFrame:
         """Formats numeric columns and converts their data type to numeric"""
         df = data.copy()
-        replace = {" ": "", "\xa0": "", ",": "."}
+        replace = {" ": "", "\xa0": "", ",": ".", "-": ""}
         df[self._meta.numeric_cols] = (
             df[self._meta.numeric_cols]
             .replace(replace, regex=True)
