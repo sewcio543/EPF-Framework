@@ -5,6 +5,11 @@ __pycache__
 *.idea
 .vscode
 
+# data folders
+data/DAM
+data/demand
+data/IDM
+
 # C extensions
 *.so
 

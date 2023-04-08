@@ -3,7 +3,6 @@ from typing import Optional
 
 from selenium.webdriver import Chrome
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.remote.webdriver import WebDriver
 from webdriver_manager.chrome import ChromeDriverManager
 
@@ -92,6 +91,4 @@ class DriverFactory:
         if verbose:
             print(f"driver: {driver_path}")
 
-        service = Service(driver_path)
-        driver = Chrome(options=opts, service=service)
-        return driver
+        return Chrome(driver_path, options=opts)
