@@ -1,0 +1,11 @@
+black
+bs4
+flake8
+numpy
+pandas
+pre-commit
+pytest
+selenium
+sklearn
+sktime
+webdriver-manager

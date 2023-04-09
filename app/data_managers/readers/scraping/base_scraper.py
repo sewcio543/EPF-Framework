@@ -42,27 +42,14 @@ class BaseScraper(TagExtractor):
             load_time: float, default 0.1
                 Seconds to wait after directing to page
         """
-        self._setup(driver=driver, headless=headless, verbose=verbose)
-        self._verbose = verbose
         self._load_sleep = load_time
-        self._driver_path = driver
-        self._headless = headless
         self._wait_time = wait_time
+        self._factory = DriverFactory(path=driver, headless=headless, verbose=verbose)
+        self._driver = self._factory.get()
 
     @property
     def current_url(self) -> str:
         return self._driver.current_url
-
-    def _setup(
-        self, driver: Optional[str] = None, headless: bool = True, verbose: bool = True
-    ) -> None:
-        """
-        Initialize selenium.webdriver.Chrome object and checks
-        its compatibility with chrome version
-        """
-        self._driver = DriverFactory.get_driver(
-            path=driver, headless=headless, verbose=verbose
-        )
 
     def get_source(
         self,

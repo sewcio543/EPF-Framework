@@ -1,33 +1,32 @@
+# .pre-commit-config.yaml
+# ========================
+# pip install pre-commit
+# run pre-commit install in repo
+
 repos:
-  -   repo: https://github.com/pre-commit/pre-commit-hooks
-      rev: v4.4.0
-      hooks:
-      -   id: trailing-whitespace
-      -   id: end-of-file-fixer
-      -   id: check-yaml
-      -   id: debug-statements
-      -   id: double-quote-string-fixer
-      -   id: name-tests-test
-      -   id: requirements-txt-fixer
-  -   repo: https://github.com/asottile/reorder_python_imports
-      rev: v3.9.0
-      hooks:
-      -   id: reorder-python-imports
-          exclude: ^(pre_commit/resources/|testing/resources/python3_hooks_repo/)
-          args: [--py38-plus, --add-import, 'from __future__ import annotations']
-  - repo: https://github.com/psf/black
-    rev: 22.3.0
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
     hooks:
-      - id: black-jupyter
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-docstring-first
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=1000"]
+      - id: check-ast
+      - id: debug-statements
+      - id: requirements-txt-fixer
+
+  - repo: https://github.com/psf/black
+    rev: 23.1.0
+    hooks:
+      - id: black
         language_version: python3
 
   - repo: https://github.com/PyCQA/flake8
-    rev: 4.0.1
+    rev: 6.0.0
     hooks:
-    -   id: flake8
+      - id: flake8
+        args: [--config, setup.cfg]
         language_version: python3
-
-  - repo: https://github.com/pycqa/isort
-    rev: 5.11.5
-    hooks:
-      -  id: isort

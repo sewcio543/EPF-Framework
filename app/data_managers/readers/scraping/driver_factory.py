@@ -6,89 +6,119 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.remote.webdriver import WebDriver
 from webdriver_manager.chrome import ChromeDriverManager
 
+DRIVER_VERSION = "driver_version"
+BROWSER_VERSION = "browser_version"
+
 
 class DriverFactory:
-    @classmethod
-    def get_driver(
-        cls, path: Optional[str] = None, headless: bool = True, verbose: bool = True
-    ) -> WebDriver:
+    def __init__(
+        self, path: Optional[str] = None, headless: bool = True, verbose: bool = True
+    ) -> None:
+        """Initializes DriverFactory
+
+        Args:
+            path: str
+                Executable path for Webdriver. Defaults to None.
+            headless: bool, optional
+                Whether driver should run in headless mode. Defaults to True.
+                If headless is False, browser will be open.
+            verbose: bool, optional
+                If verbose is set to True, additional information will be printed out.
+                Defaults to True.
+        """
+        self.path = path
+        self.headless = headless
+        self.verbose = verbose
+
+    def get(self) -> WebDriver:
         """
         Initialize selenium.webdriver.Chrome object and checks
         its compatibility with chrome version
+
+        Returns:
+            Webdriver: selenium.webdriver.Chrome
         """
-        opts = cls._get_options(headless=headless)
-        driver = cls._get_driver(opts=opts, driver_path=path, verbose=verbose)
-        cls._check_compatibility(driver=driver, verbose=verbose)
+        opts = self._get_options()
+        driver = self._get_driver(options=opts)
+        self._check_compatibility(driver=driver)
         return driver
 
-    @classmethod
-    def _check_compatibility(cls, driver: WebDriver, verbose: bool = True) -> None:
+    def _check_compatibility(self, driver: WebDriver) -> None:
         """
         Checks driver's version compatibility with browser version,
         if version is different, raises a warning
 
         Parameters:
-            verbose : bool, deafult = True
-                If true prints versions details
+            driver : Chrome
+                Selenium Chrome webdriver object
         """
         # check compatibility with chrome browser
-        details = cls._get_details(driver)
-        browser_version = details["browser_version"].split(".")[0]
-        driver_version = details["driver_version"].split(".")[0]
+        details = self._get_details(driver)
+        browser_version = details[BROWSER_VERSION].split(".")[0]
+        driver_version = details[DRIVER_VERSION].split(".")[0]
         if browser_version != driver_version:
             warnings.warn(
-                """Browser's version might be incompatible with
-                        driver's version""".replace(
-                    "  ", ""
-                )
+                "Browser's version might be incompatible with driver's version"
             )
-        if verbose:
+        if self.verbose:
             for key, value in details.items():
                 print(f"{key}: {value}")
 
-    @staticmethod
-    def _get_details(driver: WebDriver) -> dict:
+    def _get_details(self, driver: WebDriver) -> dict:
         """
         Uses driver's capability attribute to extract information about
         driver and browser
+
+        Parameters:
+            driver : Chrome
+                Selenium Chrome webdriver object
+
+        Returns:
+            dict: driver and browser version information
         """
         browser_name = driver.capabilities["browserName"]
         browser_version = driver.capabilities["browserVersion"]
         driver_version = driver.capabilities[browser_name][
             f"{browser_name}driverVersion"
         ].split(" ")[0]
-        details = {"driver_version": driver_version, "browser_version": browser_version}
+        details = {DRIVER_VERSION: driver_version, BROWSER_VERSION: browser_version}
         return details
 
-    @staticmethod
-    def _get_options(headless: bool = True) -> Options:
+    def _get_options(self) -> Options:
         """
-        Returns selenium.webdriver.chrome.options.Options for driver
+        Gets driver Options
 
         Parameters:
             headless : bool, deafult = True
                 If false driver runs browser in the background
+
+        Returns:
+            Options: Selenium Webdriver Options
         """
         opts = Options()
-        opts.headless = headless
+        opts.headless = self.headless
         opts.add_experimental_option(
-            "excludeSwitches", ["enable-logging", '"disable-popup-blocking"']
+            "excludeSwitches", ["enable-logging", "disable-popup-blocking"]
         )
         return opts
 
-    @staticmethod
-    def _get_driver(
-        opts: Options, driver_path: Optional[str] = None, verbose: bool = True
-    ) -> WebDriver:
+    def _get_driver(self, options: Options) -> WebDriver:
         """
         Returns selenium.webdriver.Chrome instance,
         if path to driver exe is not specified, downloads the lastest version
+
+        Parameters:
+            options: Options
+                Selenium Webdriver Options
+
+        Returns:
+            Webdriver: selenium.webdriver.Chrome
         """
-        if driver_path is None:
+        if self.path is None:
             # download latest driver
-            driver_path = ChromeDriverManager().install()
+            self.path = ChromeDriverManager().install()
 
-        if verbose:
-            print(f"driver: {driver_path}")
+        if self.verbose:
+            print(f"driver: {self.path}")
 
-        return Chrome(driver_path, options=opts)
+        return Chrome(executable_path=self.path, options=options)
