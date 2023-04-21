@@ -1,11 +1,13 @@
 black
 bs4
 flake8
+matplotlib
 numpy
 pandas
 pre-commit
 pytest
+scikit-learn
+seaborn
 selenium
-sklearn
 sktime
 webdriver-manager
