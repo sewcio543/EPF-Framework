@@ -11,8 +11,9 @@ from .utils import create_directory
 class BaseUploader(ABC):
     _ext: str
 
-    def __init__(self, file: str) -> None:
+    def __init__(self, file: str, copy: bool = True) -> None:
         self.file = file
+        self._copy = copy
         assert file.endswith(self._ext), f"File must be of {self._ext} format"
         self._exist = os.path.exists(file)
         create_directory(file)
@@ -21,7 +22,7 @@ class BaseUploader(ABC):
         existing = self._read() if self._exist else pd.DataFrame()
         new = data.loc[~data.index.isin(existing.index)]
         concat = pd.concat((existing, new)).sort_index()
-        if self._exist:
+        if self._exist and self._copy:
             self._copy_file()
         self._upload(concat)
 

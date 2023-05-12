@@ -12,6 +12,7 @@ class BaseReader(ABC):
     """Abstract class for reading and formatting data sources"""
 
     DATE_FORMAT = "%Y-%m-%d %H"
+    _READ_KWARGS = {}
 
     def __init__(self, source: str) -> None:
         """
@@ -89,7 +90,7 @@ class BaseReader(ABC):
         """Sets time columns as DataFrame index"""
         df = data.copy()
         df[data_ns.TIME] = pd.to_datetime(df[data_ns.TIME], format=self.DATE_FORMAT)
-        df = df.set_index(data_ns.TIME)
+        df = df.set_index(data_ns.TIME).sort_index()
         return df
 
     def _drop_duplicated_index(self, data: pd.DataFrame) -> pd.DataFrame:
@@ -100,7 +101,6 @@ class CSVReader(BaseReader):
     """Abstract class for reading csv files"""
 
     _SEP = ","
-    _READ_KWARGS = {}
 
     def _read_source(self, source: str) -> pd.DataFrame:
         kwargs = {"sep": self._SEP} | self._READ_KWARGS
@@ -109,8 +109,6 @@ class CSVReader(BaseReader):
 
 class ExcelReader(BaseReader):
     """Abstract class for reading excel files"""
-
-    _READ_KWARGS = {}
 
     def _read_source(self, source: str) -> pd.DataFrame:
         return pd.read_excel(source, **self._READ_KWARGS)
