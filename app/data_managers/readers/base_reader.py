@@ -1,11 +1,15 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Union
+from pathlib import Path
+from typing import Union
 
 import pandas as pd
 
 from ..namespaces import data_ns
 from ..utils import SourceMetaData
+from ..utils.data_checker import check_data
 from .scraping.base_scraper import BaseScraper
+
+SOURCE = Union[str, list, Path]
 
 
 class BaseReader(ABC):
@@ -23,21 +27,22 @@ class BaseReader(ABC):
         self._meta = SourceMetaData(source=source)
         super().__init__()
 
-    @abstractmethod
     def _format(self, data: pd.DataFrame) -> pd.DataFrame:
         """Formats raw data specifically to data source"""
-        ...
+        return data
 
     @abstractmethod
-    def _read_source(self, source: str) -> pd.DataFrame:
+    def _read_source(self, source: Union[str, Path]) -> pd.DataFrame:
         """Reads input data file and returns raw DataFrame"""
         ...
 
-    def read(self, source: Union[str, list[str]]) -> pd.DataFrame:
+    def read(self, source: SOURCE) -> pd.DataFrame:
         """Reads and formats input data
 
         Args:
-            file (str): path to file with input data
+            source: list or pathlike
+                List of strings or Path objects with input data.
+                Single non-list object is also acceptable.
 
         Returns:
             pd.DataFrame: Formatted DataFrame
@@ -47,13 +52,13 @@ class BaseReader(ABC):
         df = self._cast_to_str(df)
         df = self._format(df)
         df = self._drop_redundant_columns(df)
-        self._check_data(df)
         df = self._set_time_index(df)
         df = self._drop_duplicated_index(df)
+        check_data(df)
         return df
 
-    def _read(self, source: Union[str, list[str]]) -> pd.DataFrame:
-        if isinstance(source, str):
+    def _read(self, source: SOURCE) -> pd.DataFrame:
+        if not isinstance(source, list):
             source = [source]
         df = pd.concat((self._read_source(file) for file in source), ignore_index=True)
         return df
@@ -70,13 +75,6 @@ class BaseReader(ABC):
         df = data.copy()
         df = df.rename(self._meta.renames, axis=1)
         return df
-
-    def _check_data(self, data: pd.DataFrame) -> None:
-        missing_cols = [
-            col for col in self._meta.numeric_cols if col not in data.columns
-        ]
-        assert not missing_cols, f"{missing_cols} columns are missing"
-        assert data_ns.TIME in data.columns, f"missing {data_ns.TIME} column"
 
     def _drop_redundant_columns(self, data: pd.DataFrame) -> pd.DataFrame:
         """Drops redundant columns that are not numeric, id or time"""
@@ -100,39 +98,20 @@ class BaseReader(ABC):
 class CSVReader(BaseReader):
     """Abstract class for reading csv files"""
 
-    _SEP = ","
-
     def _read_source(self, source: str) -> pd.DataFrame:
-        kwargs = {"sep": self._SEP} | self._READ_KWARGS
-        return pd.read_csv(source, encoding="windows-1252", **kwargs)
+        return pd.read_csv(source, encoding="windows-1252", **self._READ_KWARGS)
 
 
 class ExcelReader(BaseReader):
     """Abstract class for reading excel files"""
 
     def _read_source(self, source: str) -> pd.DataFrame:
-        return pd.read_excel(source, **self._READ_KWARGS)
+        return pd.read_excel(source, engine="openpyxl", **self._READ_KWARGS)
 
 
 class WebScraper(BaseReader):
     """Abstract class for scraping data from Web"""
 
-    SOURCE: Union[str, list[str]]
-
-    def __init__(
-        self,
-        source: str,
-        driver: Optional[str] = None,
-        headless: bool = True,
-        wait_time: int = 5,
-        verbose: bool = False,
-        load_time: float = 0.1,
-    ) -> None:
+    def __init__(self, source: str, scraper: BaseScraper) -> None:
         super().__init__(source)
-        self._scraper = BaseScraper(
-            driver=driver,
-            headless=headless,
-            wait_time=wait_time,
-            verbose=verbose,
-            load_time=load_time,
-        )
+        self._scraper = scraper

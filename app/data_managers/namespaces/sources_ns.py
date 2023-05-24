@@ -46,4 +46,9 @@ sources_ns = Namespace(
         data_ns.RENAMES: {"Data zmiany": data_ns.TIME, "Cena": data_ns.VALUE},
         data_ns.FREQ: "D",
     },
+    CO2_SETTLEMENT_PRICES={
+        data_ns.NUMERIC_COLUMNS: [data_ns.VALUE],
+        data_ns.RENAMES: {"Unnamed: 0": data_ns.TIME, "[zł/Mg CO2]": data_ns.VALUE},
+        data_ns.FREQ: "D",
+    },
 )
