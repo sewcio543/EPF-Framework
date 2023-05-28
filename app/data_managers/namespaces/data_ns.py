@@ -10,3 +10,5 @@ data_ns = Namespace(
     HOUR="HOUR",
     FREQ="FREQ",
 )
+
+files_ns = Namespace(DATA_FOLDER="data", HOLIDAYS="HOLIDAYS/holidays.csv")
