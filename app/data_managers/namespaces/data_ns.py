@@ -1,3 +1,4 @@
+import os
 from argparse import Namespace
 
 data_ns = Namespace(
@@ -11,4 +12,11 @@ data_ns = Namespace(
     FREQ="FREQ",
 )
 
-files_ns = Namespace(DATA_FOLDER="data", HOLIDAYS="HOLIDAYS/holidays.csv")
+_HOLIDAYS = os.path.join("HOLIDAYS", "holidays.csv")
+
+files_ns = Namespace(
+    DATA_FOLDER="data",
+    CURATED_FOLDER="CURATED",
+    HOLIDAYS=_HOLIDAYS,
+    FUEL_PRICES="FUEL_PRICES.csv",
+)

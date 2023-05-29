@@ -5,6 +5,7 @@ matplotlib
 numpy
 pandas
 pre-commit
+prophet
 pytest
 scikit-learn
 seaborn

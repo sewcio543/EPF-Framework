@@ -132,9 +132,12 @@ class DayOffIndicatorCreator(BaseTransformer):
             The path to the holiday file in CSV format.
             If not provided, the default holiday file path will be used.
         """
+
         if file is None:
             file = os.path.join(files_ns.DATA_FOLDER, files_ns.HOLIDAYS)
+
         file = Path(file)
+
         if not file.exists():
             raise ValueError(f"file {file} does not exist")
         self.file = file
@@ -251,4 +254,60 @@ class OutlierFlagCreator(BaseTransformer):
         )
         out = hf.fit_transform(df[data_ns.VALUE])
         df[self.column] = list(map(int, out)) if self.return_bool else out
+        return df
+
+
+class FuelPricesProvider(BaseTransformer):
+    def __init__(self, file: Optional[PATH] = None) -> None:
+        """
+        Initializes a new instance of the DayOffIndicatorCreator class.
+
+        Parameters
+        ----------
+        file : pathlike, optional
+            The path to the holiday file in CSV format.
+            If not provided, the default holiday file path will be used.
+        """
+
+        if file is None:
+            file = os.path.join(
+                files_ns.DATA_FOLDER, files_ns.CURATED_FOLDER, files_ns.FUEL_PRICES
+            )
+
+        file = Path(file)
+
+        if not file.exists():
+            raise ValueError(f"file {file} does not exist")
+        self.file = file
+        if file.suffix != ".csv":
+            raise NotImplementedError("Holiday file must be in csv format")
+
+    @property
+    def column(self) -> str:
+        return "FUEL_PRICES"
+
+    def _read_file(self) -> pd.Series:
+        """
+        Reads the holiday file and returns a list of holiday dates.
+        Skips names of the holiday.
+
+        Returns
+        -------
+        list
+            A list of holiday dates.
+        """
+        data = pd.read_csv(
+            self.file,
+            parse_dates=[data_ns.TIME],
+            index_col=data_ns.TIME,
+        )
+        return data.squeeze()
+
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        df = X.copy()
+        new = self._read_file().rename(self.column)
+        df = pd.merge(df, new, how="left", left_index=True, right_index=True)
+        # first fill next day, then bfill in case some days from beginning
+        # are missing (data starts from not midnight time)
+        df[self.column] = df[self.column].ffill().fillna(method="bfill")
         return df

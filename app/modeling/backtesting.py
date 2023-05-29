@@ -1,5 +1,3 @@
-from typing import Iterable
-
 import pandas as pd
 from sktime.forecasting.model_evaluation import evaluate
 from sktime.forecasting.model_selection._split import BaseSplitter
@@ -73,20 +71,22 @@ class TSBacktesting:
         self._metrics = metrics
         self._errors = pd.DataFrame()
 
+    def _silence_loggers(self) -> None:
+        """Turns off cmdstanpy logger used by sktime"""
+        import logging
+
+        # logger used by sktime
+        logger = logging.getLogger("cmdstanpy")
+        logger.addHandler(logging.NullHandler())
+        logger.propagate = False
+        logger.setLevel(logging.CRITICAL)
+
     @property
     def errors_(self) -> pd.DataFrame:
-        """
-        Return the evaluation metrics for each model.
-
-        Returns
-        -------
-        pandas.DataFrame
-            A dataframe of evaluation metrics for each model.
-
-        """
+        """Return the evaluation metrics for each model"""
         return self._errors
 
-    def evaluate(self, y: pd.Series) -> pd.DataFrame:
+    def evaluate(self, y: pd.Series, **kwargs) -> pd.DataFrame:
         """
         Evaluate each model using time series backtesting and return the forecasts.
 
@@ -94,18 +94,29 @@ class TSBacktesting:
         ----------
         y : pandas.Series
             The target time series to forecast.
+        kwargs:
+            Keyword parameters for sktime evaluate function
 
         Returns
         -------
         pandas.DataFrame
             A dataframe of forecasts for each model.
         """
+        self._silence_loggers()
         res = {}
         for name, model in self._models.items():
-            cv_res = evaluate(
-                model, cv=self._splitter, y=y, return_data=True, strategy="update"
-            )
-            preds = pd.concat(iter(cv_res.y_pred)).rename(name)
+            try:
+                cv_res = evaluate(
+                    model,
+                    cv=self._splitter,
+                    y=y,
+                    return_data=True,
+                    strategy="update",
+                    **kwargs
+                )
+            except KeyboardInterrupt:
+                break
+            preds = pd.concat(iter(cv_res["y_pred"])).rename(name)
             res[name] = preds
         results = pd.DataFrame(res)
         self._errors = self._calculate_errors(results, y)
@@ -127,15 +138,13 @@ class TSBacktesting:
         pandas.DataFrame
             A dataframe of evaluation metrics for each model.
         """
-        actual_mask = results.index.intersection(y.index)
-        actuals = y.loc[actual_mask]
-        metrics = results.apply(lambda x: self._get_metrics(x, actuals)).to_dict()
+        metrics = results.apply(lambda x: self._get_metrics(x, y)).to_dict()
         return pd.DataFrame(metrics).T
 
     def _get_metrics(
         self,
-        forecast: Iterable,
-        actuals: Iterable,
+        forecast: pd.Series,
+        actuals: pd.Series,
     ) -> dict:
         """
         Calculate the specified performance metrics for a single evaluated model
@@ -145,12 +154,12 @@ class TSBacktesting:
 
         Parameters:
         -----------
-        forecast: Iterable
-            A iterable object containing the predicted values
-            for a single evaluated model.
-        actuals: Iterable
-            A iterable object containing the actual values to be used
-            for error metric calculation.
+        forecast: pd.Series
+            A Series object containing the predicted values
+            with datetime index for a single evaluated model.
+        actuals: pd.Series
+            A Series object containing the actual values to be used
+            with datetime index for error metric calculation.
 
         Returns:
         --------
@@ -158,6 +167,12 @@ class TSBacktesting:
             A dictionary object containing the calculated error
             metrics for the evaluated model.
         """
+        actuals = actuals.dropna()
+        forecast = forecast.dropna()
+
+        # get only the intersection of index for calculating metrics
+        mask = forecast.index.intersection(actuals.index)
         return {
-            name: metric(actuals, forecast) for name, metric in self._metrics.items()
+            name: metric(actuals.loc[mask], forecast.loc[mask])
+            for name, metric in self._metrics.items()
         }
