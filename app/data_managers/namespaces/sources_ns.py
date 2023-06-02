@@ -4,7 +4,7 @@ from .data_ns import data_ns
 
 sources_ns = Namespace(
     ENERGY_DEMAND={
-        data_ns.NUMERIC_COLUMNS: [data_ns.FORECAST, data_ns.VALUE],
+        data_ns.NUMERIC_COLUMNS: [data_ns.VALUE, data_ns.FORECAST],
         data_ns.RENAMES: {
             "Dobowa prognoza zapotrzebowania KSE": data_ns.FORECAST,
             "Rzeczywiste zapotrzebowanie KSE": data_ns.VALUE,

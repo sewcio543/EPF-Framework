@@ -79,9 +79,11 @@ class BaseReader(ABC):
     def _drop_redundant_columns(self, data: pd.DataFrame) -> pd.DataFrame:
         """Drops redundant columns that are not numeric, id or time"""
         df = data.copy()
-        valid = self._meta.numeric_cols + [data_ns.TIME]
+        valid = [data_ns.TIME] + self._meta.numeric_cols
         redundant = filter(lambda x: x not in valid, df.columns)
         df = df.drop(redundant, axis=1)
+        # set order of columns as in namespace
+        df = df.reindex(columns=valid)
         return df
 
     def _set_time_index(self, data: pd.DataFrame) -> pd.DataFrame:

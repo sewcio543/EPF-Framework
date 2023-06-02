@@ -1,3 +1,6 @@
+import warnings
+from typing import Optional
+
 import pandas as pd
 from sktime.forecasting.model_evaluation import evaluate
 from sktime.forecasting.model_selection._split import BaseSplitter
@@ -81,19 +84,29 @@ class TSBacktesting:
         logger.propagate = False
         logger.setLevel(logging.CRITICAL)
 
+        # silence models warnings like ex. ConverganceError
+        warnings.filterwarnings("ignore")
+
     @property
     def errors_(self) -> pd.DataFrame:
         """Return the evaluation metrics for each model"""
-        return self._errors
+        return self._errors.sort_values(
+            by=self._errors.columns.to_list(), ascending=True
+        )
 
-    def evaluate(self, y: pd.Series, **kwargs) -> pd.DataFrame:
+    def evaluate(
+        self, y: pd.Series, X: Optional[pd.DataFrame] = None, **kwargs
+    ) -> pd.DataFrame:
         """
         Evaluate each model using time series backtesting and return the forecasts.
 
         Parameters
         ----------
-        y : pandas.Series
+        y : pd.Series
             The target time series to forecast.
+        X: pd.DataFrame
+            DataFrame with exogenious variables as features passed
+            to sktime evaluate function. It must have the same index as y.
         kwargs:
             Keyword parameters for sktime evaluate function
 
@@ -110,6 +123,7 @@ class TSBacktesting:
                     model,
                     cv=self._splitter,
                     y=y,
+                    X=X,
                     return_data=True,
                     strategy="update",
                     **kwargs

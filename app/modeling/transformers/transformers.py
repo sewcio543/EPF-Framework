@@ -9,6 +9,7 @@ import pandas as pd
 from sktime.transformations.series.outlier_detection import HampelFilter
 
 from ...data_managers.namespaces import data_ns, files_ns
+from ...data_managers.readers.weather_reader import TEMPERATURE, WIND_SPEED
 
 PATH = Union[Path, str]
 
@@ -80,13 +81,13 @@ class SeasonIndicatorCreator(BaseTransformer):
         x = x.replace(year=y)
 
         if x < datetime(y, 3, 21) or x > datetime(y, 12, 22):
-            return "Winter"
+            return "WINTER"
         elif x < datetime(y, 6, 22):
-            return "Spring"
+            return "SPRING"
         elif x < datetime(y, 9, 23):
-            return "Summer"
+            return "SUMMER"
         else:
-            return "Autumn"
+            return "AUTUMN"
 
     def transform(self, X: pd.DataFrame) -> pd.DataFrame:
         """
@@ -107,89 +108,6 @@ class SeasonIndicatorCreator(BaseTransformer):
         season_dummies = pd.get_dummies(season, drop_first=True)
         season_dummies = season_dummies.set_index(df.index)
         df = pd.concat((df, season_dummies), axis=1)
-        return df
-
-
-class DayOffIndicatorCreator(BaseTransformer):
-    """
-    A transformer class for creating a day-off indicator
-    column in a DataFrame with a datetime index.
-    """
-
-    DATE_COL = "DATE"
-
-    @property
-    def column(self) -> str:
-        return "Is_Day_Off"
-
-    def __init__(self, file: Optional[PATH] = None) -> None:
-        """
-        Initializes a new instance of the DayOffIndicatorCreator class.
-
-        Parameters
-        ----------
-        file : pathlike, optional
-            The path to the holiday file in CSV format.
-            If not provided, the default holiday file path will be used.
-        """
-
-        if file is None:
-            file = os.path.join(files_ns.DATA_FOLDER, files_ns.HOLIDAYS)
-
-        file = Path(file)
-
-        if not file.exists():
-            raise ValueError(f"file {file} does not exist")
-        self.file = file
-        if file.suffix != ".csv":
-            raise NotImplementedError("Holiday file must be in csv format")
-
-    def _read_file(self) -> list:
-        """
-        Reads the holiday file and returns a list of holiday dates.
-        Skips names of the holiday.
-
-        Returns
-        -------
-        list
-            A list of holiday dates.
-        """
-        file = pd.read_csv(
-            self.file, parse_dates=[self.DATE_COL], usecols=[self.DATE_COL]
-        )
-        return file.squeeze().to_list()
-
-    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
-        """
-        Transforms the input DataFrame by adding an 'Is_Day_Off' column,
-        indicating whether each day is a holiday or a weekend day.
-
-        Parameters
-        ----------
-        X : pd.DataFrame
-            The input DataFrame with datetime index to be transformed.
-
-        Returns
-        -------
-        pd.DataFrame
-            The transformed DataFrame with the 'Is_Day_Off' column added.
-
-        Raises
-        ------
-        ValueError
-            If the DataFrame does not have a datetime index.
-        """
-        df = X.copy()
-        if not isinstance(df.index, pd.DatetimeIndex):
-            raise ValueError("DataFrame to transform should have datetime index")
-        holidays = self._read_file()
-        df[self.column] = list(
-            map(
-                lambda x: x.replace(hour=0) in holidays
-                or x.day_name() in {"Sunday", "Suturday"},
-                df.index,
-            )
-        )
         return df
 
 
@@ -257,22 +175,18 @@ class OutlierFlagCreator(BaseTransformer):
         return df
 
 
-class FuelPricesProvider(BaseTransformer):
+class BaseFileProvider(BaseTransformer):
     def __init__(self, file: Optional[PATH] = None) -> None:
         """
-        Initializes a new instance of the DayOffIndicatorCreator class.
-
         Parameters
         ----------
         file : pathlike, optional
-            The path to the holiday file in CSV format.
-            If not provided, the default holiday file path will be used.
+            The path to data source file in CSV format.
+            If not provided, the default file path for source will be used.
         """
 
         if file is None:
-            file = os.path.join(
-                files_ns.DATA_FOLDER, files_ns.CURATED_FOLDER, files_ns.FUEL_PRICES
-            )
+            file = self._default_path
 
         file = Path(file)
 
@@ -283,10 +197,170 @@ class FuelPricesProvider(BaseTransformer):
             raise NotImplementedError("Holiday file must be in csv format")
 
     @property
+    @abstractmethod
+    def _default_path(self) -> str:
+        ...
+
+    @property
+    @abstractmethod
     def column(self) -> str:
-        return "FUEL_PRICES"
+        ...
 
     def _read_file(self) -> pd.Series:
+        """
+        Reads data source file and returns a series of numeric values.
+
+        Returns
+        -------
+        pd.Series
+            A series representing new feature for modeling
+        """
+        data = pd.read_csv(
+            self.file,
+            parse_dates=[data_ns.TIME],
+            index_col=data_ns.TIME,
+            usecols=[0, 1],
+        )
+        data = data.squeeze()
+        data.name = self.column
+        return data
+
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        """
+        Transforms the input DataFrame by adding an new column,
+        based on marge on index of exo source file.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            The input DataFrame with datetime index to be transformed
+            by appending new column with exo feature.
+
+        Returns
+        -------
+        pd.DataFrame
+            The transformed DataFrame with new column added
+
+        Raises
+        ------
+        ValueError
+            If the DataFrame does not have a datetime index.
+        """
+        df = X.copy()
+        if not isinstance(df.index, pd.DatetimeIndex):
+            raise ValueError("DataFrame to transform should have datetime index")
+        exo = self._read_file()
+        df = self._transform(df, exo=exo)
+        return df
+
+    def _transform(self, X: pd.DataFrame, exo) -> pd.DataFrame:
+        """
+        Source specific transforming operation on input dataframe
+        with use of exo feature.
+
+        Parameters
+        ----------
+        X : pd.DataFrame
+            DataFrame with input data to be transformed
+        exo : Any
+            Data representing exogenious variable to be added to
+            input data or used for transformations.
+
+        Returns
+        -------
+        pd.DataFrame
+            Transformed input DataFrame.
+        """
+        df = pd.merge(X, exo, how="left", left_index=True, right_index=True)
+        # in case of less granular frequency or missing values, data is filled.
+        # first fill next day, then bfill in case some days from beginning
+        # are missing (data starts from not midnight time)
+        df[self.column] = df[self.column].ffill().fillna(method="bfill")
+        return df
+
+
+class FuelPricesProvider(BaseFileProvider):
+    @property
+    def _default_path(self) -> str:
+        return os.path.join(
+            files_ns.DATA_FOLDER, files_ns.CURATED_FOLDER, files_ns.FUEL_PRICES
+        )
+
+    @property
+    def column(self) -> str:
+        return "FUEL_PRICE"
+
+
+class CO2PricesProvider(BaseFileProvider):
+    @property
+    def _default_path(self) -> str:
+        return os.path.join(
+            files_ns.DATA_FOLDER, files_ns.CURATED_FOLDER, files_ns.CO2_PRICES
+        )
+
+    @property
+    def column(self) -> str:
+        return "CO2_PRICE"
+
+
+class EnergyDemandProvider(BaseFileProvider):
+    @property
+    def _default_path(self) -> str:
+        return os.path.join(
+            files_ns.DATA_FOLDER, files_ns.CURATED_FOLDER, files_ns.ENERGY_DEMAND
+        )
+
+    @property
+    def column(self) -> str:
+        return "DEMAND"
+
+
+class WeatherProvider(BaseFileProvider):
+    @property
+    def _default_path(self) -> str:
+        return os.path.join(
+            files_ns.DATA_FOLDER, files_ns.CURATED_FOLDER, files_ns.WEATHER
+        )
+
+    def _read_file(self) -> pd.Series:
+        data = pd.read_csv(
+            self.file,
+            parse_dates=[data_ns.TIME],
+            index_col=data_ns.TIME,
+            usecols=[data_ns.TIME, self.column],
+        )
+        data = data.squeeze()
+        data.name = self.column
+        return data
+
+
+class TemperatureProvider(WeatherProvider):
+    @property
+    def column(self) -> str:
+        return TEMPERATURE
+
+
+class WindSpeedProvider(WeatherProvider):
+    @property
+    def column(self) -> str:
+        return WIND_SPEED
+
+
+class DayOffIndicatorCreator(BaseFileProvider):
+    """
+    A transformer class for creating a day-off indicator
+    column in a DataFrame with a datetime index.
+    """
+
+    @property
+    def column(self) -> str:
+        return "IS_DAY_OFF"
+
+    @property
+    def _default_path(self) -> str:
+        return os.path.join(files_ns.DATA_FOLDER, files_ns.HOLIDAYS)
+
+    def _read_file(self) -> list:
         """
         Reads the holiday file and returns a list of holiday dates.
         Skips names of the holiday.
@@ -296,18 +370,20 @@ class FuelPricesProvider(BaseTransformer):
         list
             A list of holiday dates.
         """
-        data = pd.read_csv(
-            self.file,
-            parse_dates=[data_ns.TIME],
-            index_col=data_ns.TIME,
-        )
-        return data.squeeze()
+        data = super()._read_file()
+        return data.index.to_list()
 
-    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+    def _transform(self, X: pd.DataFrame, exo) -> pd.DataFrame:
+        """
+        Adds boolean columns indicating whether date was a day off or not.
+        Includes all holidays and weekends. By deafult includes all polish
+        holidays from default holiday file.
+        """
         df = X.copy()
-        new = self._read_file().rename(self.column)
-        df = pd.merge(df, new, how="left", left_index=True, right_index=True)
-        # first fill next day, then bfill in case some days from beginning
-        # are missing (data starts from not midnight time)
-        df[self.column] = df[self.column].ffill().fillna(method="bfill")
+        ind = map(
+            lambda x: x.replace(hour=0) in exo
+            or x.day_name() in {"Sunday", "Suturday"},
+            df.index,
+        )
+        df[self.column] = list(map(int, ind))
         return df
