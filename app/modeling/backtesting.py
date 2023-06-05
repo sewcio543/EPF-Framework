@@ -1,10 +1,11 @@
+import logging
 import warnings
 from typing import Optional
 
 import pandas as pd
+from sktime.forecasting.base import BaseForecaster
 from sktime.forecasting.model_evaluation import evaluate
 from sktime.forecasting.model_selection._split import BaseSplitter
-from sktime.forecasting.naive import NaiveForecaster
 from sktime.performance_metrics.forecasting import (
     MeanAbsoluteError,
     MeanAbsolutePercentageError,
@@ -12,18 +13,15 @@ from sktime.performance_metrics.forecasting import (
 )
 from sktime.performance_metrics.forecasting._classes import BaseForecastingErrorMetric
 
-DEFAULT_MODELS = {
-    "SEASONAL_NAIVE_MEAN": NaiveForecaster(strategy="mean", sp=24),
-    "SEASONAL_NAIVE_MEAN_3_DAYS": NaiveForecaster(
-        strategy="mean", sp=24, window_length=72
-    ),
-}
-
 DEFAULT_METRICS = {
     "MAPE": MeanAbsolutePercentageError(),
     "MAE": MeanAbsoluteError(),
     "RMSE": MeanSquaredError(square_root=True),
 }
+
+# name of the columns used in sktime evaluate function
+Y_PRED = "y_pred"
+ACTUAL = "ACTUAL"
 
 
 class TSBacktesting:
@@ -46,7 +44,7 @@ class TSBacktesting:
     def __init__(
         self,
         splitter: BaseSplitter,
-        models: dict = DEFAULT_MODELS,
+        models: dict[str, BaseForecaster],
         metrics: dict[str, BaseForecastingErrorMetric] = DEFAULT_METRICS,
     ) -> None:
         """
@@ -60,8 +58,7 @@ class TSBacktesting:
             generator for train and test sets.
         models : dict, optional
             A dictionary of sktime forecasting models to evaluate.
-            Keys are model names and values are sktime models. By deafult, simple
-            naive models for testing purposes.
+            Keys are model names and values are sktime models.
         metrics : dict, optional
             A dictionary of sktime forecasting error metrics to use for evaluation.
             Keys are metric names and values are sktime metrics. By dafaut, basic
@@ -117,23 +114,19 @@ class TSBacktesting:
         """
         self._silence_loggers()
         res = {}
-        for name, model in self._models.items():
+        for i, (name, model) in enumerate(self._models.items(), start=1):
+            logging.info(f"Model {i} -- {name}")
             try:
                 cv_res = evaluate(
-                    model,
-                    cv=self._splitter,
-                    y=y,
-                    X=X,
-                    return_data=True,
-                    strategy="update",
-                    **kwargs
+                    model, cv=self._splitter, y=y, X=X, return_data=True, **kwargs
                 )
             except KeyboardInterrupt:
                 break
-            preds = pd.concat(iter(cv_res["y_pred"])).rename(name)
-            res[name] = preds
+            res[name] = pd.concat(iter(cv_res[Y_PRED]))
+
         results = pd.DataFrame(res)
         self._errors = self._calculate_errors(results, y)
+        results[ACTUAL] = y.loc[results.index]
         return results
 
     def _calculate_errors(self, results: pd.DataFrame, y: pd.Series) -> pd.DataFrame:
@@ -183,7 +176,6 @@ class TSBacktesting:
         """
         actuals = actuals.dropna()
         forecast = forecast.dropna()
-
         # get only the intersection of index for calculating metrics
         mask = forecast.index.intersection(actuals.index)
         return {
