@@ -1,10 +1,10 @@
 import logging
 import warnings
-from typing import Optional
+from typing import Callable, Optional
 
 import pandas as pd
 from sktime.forecasting.base import BaseForecaster
-from sktime.forecasting.model_evaluation import evaluate
+from sktime.forecasting.model_evaluation import evaluate as sktime_evaluate
 from sktime.forecasting.model_selection._split import BaseSplitter
 from sktime.performance_metrics.forecasting import (
     MeanAbsoluteError,
@@ -13,15 +13,28 @@ from sktime.performance_metrics.forecasting import (
 )
 from sktime.performance_metrics.forecasting._classes import BaseForecastingErrorMetric
 
+from ..data_managers.namespaces import data_ns
+
 DEFAULT_METRICS = {
     "MAPE": MeanAbsolutePercentageError(),
     "MAE": MeanAbsoluteError(),
     "RMSE": MeanSquaredError(square_root=True),
 }
 
+DECORATORS = Optional[list[Callable[[Callable], pd.DataFrame]]]
 # name of the columns used in sktime evaluate function
 Y_PRED = "y_pred"
-ACTUAL = "ACTUAL"
+
+
+# TODO: implement asynch run
+def _evaluate(
+    model: BaseForecaster,
+    splitter: BaseSplitter,
+    y: pd.Series,
+    X: Optional[pd.DataFrame] = None,
+    **kwargs,
+) -> pd.DataFrame:
+    return sktime_evaluate(model, cv=splitter, y=y, X=X, return_data=True, **kwargs)
 
 
 class TSBacktesting:
@@ -46,6 +59,7 @@ class TSBacktesting:
         splitter: BaseSplitter,
         models: dict[str, BaseForecaster],
         metrics: dict[str, BaseForecastingErrorMetric] = DEFAULT_METRICS,
+        decorators: DECORATORS = None,
     ) -> None:
         """
         Initialize the time series backtesting component.
@@ -65,11 +79,18 @@ class TSBacktesting:
             sktime metrics (MAPE, MAE, RMSE). Sktime metics can be substituted
             with any callable that takes two iterables as input and returns single
             number with error as output.
+        decorators: list[callable], optional
+            List of decorator function that would enhance evaluate method by adding
+            extra functionality, they should take callable as an input, and return
+            the DataFrame with modeling results. By default, no decorator is applied.
         """
         self._models = models
         self._splitter = splitter
         self._metrics = metrics
         self._errors = pd.DataFrame()
+        if decorators is not None:
+            for func in decorators:
+                self.evaluate = func(self.evaluate)  # type: ignore
 
     def _silence_loggers(self) -> None:
         """Turns off cmdstanpy logger used by sktime"""
@@ -117,16 +138,14 @@ class TSBacktesting:
         for i, (name, model) in enumerate(self._models.items(), start=1):
             logging.info(f"Model {i} -- {name}")
             try:
-                cv_res = evaluate(
-                    model, cv=self._splitter, y=y, X=X, return_data=True, **kwargs
-                )
+                cv_res = _evaluate(model, splitter=self._splitter, y=y, X=X, **kwargs)
             except KeyboardInterrupt:
                 break
             res[name] = pd.concat(iter(cv_res[Y_PRED]))
 
         results = pd.DataFrame(res)
         self._errors = self._calculate_errors(results, y)
-        results[ACTUAL] = y.loc[results.index]
+        results[data_ns.ACTUAL] = y.loc[results.index]
         return results
 
     def _calculate_errors(self, results: pd.DataFrame, y: pd.Series) -> pd.DataFrame:

@@ -10,6 +10,7 @@ data_ns = Namespace(
     DATE="DATE",
     HOUR="HOUR",
     FREQ="FREQ",
+    ACTUAL="ACTUAL",
 )
 
 _HOLIDAYS = os.path.join("HOLIDAYS", "holidays.csv")
@@ -17,6 +18,8 @@ _HOLIDAYS = os.path.join("HOLIDAYS", "holidays.csv")
 files_ns = Namespace(
     DATA_FOLDER="data",
     CURATED_FOLDER="CURATED",
+    RESULTS_FOLDER="RESULTS",
+    PLOTS_FOLDER="PLOTS",
     HOLIDAYS=_HOLIDAYS,
     FUEL_PRICES="FUEL_PRICES.csv",
     CO2_PRICES="CO2_SETTLEMENT_PRICES.csv",
