@@ -5,15 +5,10 @@ __pycache__
 *.idea
 .vscode
 
-# data folders
-# data/DAM
-# data/demand
-# data/IDM
-
 # C extensions
 *.so
 
-# *.ipynb
+test*.ipynb
 *_copy?*
 test.py
 data/RESULTS
