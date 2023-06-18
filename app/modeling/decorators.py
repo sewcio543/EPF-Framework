@@ -1,4 +1,3 @@
-import os
 from datetime import datetime
 from functools import wraps
 from pathlib import Path
@@ -9,6 +8,7 @@ from matplotlib import pyplot as plt
 
 from app.data_managers.namespaces import data_ns, files_ns
 
+from ..data_managers.uploaders.utils import create_directory
 from .plotting import plot_forecast
 
 
@@ -21,8 +21,7 @@ def save_results(f: Callable[..., pd.DataFrame]) -> Callable[..., pd.DataFrame]:
     def wrapper(*args, **kwargs):
         out = f(*args, **kwargs)
         folder = Path(files_ns.DATA_FOLDER, files_ns.RESULTS_FOLDER)
-        if not folder.exists():
-            os.mkdir(folder)
+        create_directory(folder)
 
         now = get_time()
         path = folder / f"{now}.csv"
@@ -41,8 +40,7 @@ def save_plots(
             out = f(*args, **kwargs)
 
             folder = Path(files_ns.DATA_FOLDER, files_ns.PLOTS_FOLDER)
-            if not folder.exists():
-                os.mkdir(folder)
+            create_directory(folder)
 
             for model in out.columns:
                 if model == data_ns.ACTUAL:
@@ -60,4 +58,4 @@ def save_plots(
 
         return wrapper
 
-    return inner
+    return inner  # type: ignore
