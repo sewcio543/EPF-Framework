@@ -6,6 +6,7 @@ from typing import Optional, Union
 import pandas as pd
 from sktime.forecasting.base import ForecastingHorizon
 from sktime.forecasting.model_selection import ExpandingWindowSplitter as _EWS
+from sktime.forecasting.model_selection import SlidingWindowSplitter as _SWS
 from sktime.forecasting.model_selection._split import BaseSplitter
 
 DEFAULT_STEP_LENGTH = 24
@@ -15,8 +16,18 @@ DEFAULT_SEED = 42
 
 class ExpandingWindowSplitter(_EWS):
     def _split_windows(self, **kwargs):
-        """Overriden spit_window method that logs modling progress"""
-        gen = self._split_windows_generic(expanding=True, **kwargs)
+        """Overriden spit_window method that logs modeling progress"""
+        gen = super()._split_windows(**kwargs)
+        for counter, (train, test) in enumerate(gen, start=1):
+            mes = f"{counter} forecast -- last index: {test[-1]}"
+            logging.info(mes)
+            yield train, test
+
+
+class SlidingWindowSplitter(_SWS):
+    def _split_windows(self, **kwargs):
+        """Overriden spit_window method that logs modeling progress"""
+        gen = super()._split_windows(**kwargs)
         for counter, (train, test) in enumerate(gen, start=1):
             mes = f"{counter} forecast -- last index: {test[-1]}"
             logging.info(mes)

@@ -4,7 +4,6 @@ from typing import Callable, Optional
 
 import pandas as pd
 from sktime.forecasting.base import BaseForecaster
-from sktime.forecasting.model_evaluation import evaluate as sktime_evaluate
 from sktime.forecasting.model_selection._split import BaseSplitter
 from sktime.performance_metrics.forecasting import (
     MeanAbsoluteError,
@@ -22,19 +21,51 @@ DEFAULT_METRICS = {
 }
 
 DECORATORS = Optional[list[Callable[[Callable], pd.DataFrame]]]
-# name of the columns used in sktime evaluate function
-Y_PRED = "y_pred"
 
 
 # TODO: implement asynch run
 def _evaluate(
+    y: pd.Series,
     model: BaseForecaster,
     splitter: BaseSplitter,
-    y: pd.Series,
     X: Optional[pd.DataFrame] = None,
-    **kwargs,
-) -> pd.DataFrame:
-    return sktime_evaluate(model, cv=splitter, y=y, X=X, return_data=True, **kwargs)
+) -> pd.Series:
+    """
+    Evaluate a time series forecasting model using a given splitter.
+
+    Parameters
+    ----------
+    y: pd.Series
+        The target time series data for backtesting.
+    model: BaseForecaster
+        The time series forecasting model to evaluate.
+    splitter: BaseSplitter
+        The splitter object used for train-test splitting.
+    X: pd.DataFrame, optional
+        The exogenous variables (if any). Defaults to None.
+
+    Returns
+    -------
+    pd.Series
+        The concatenated predictions made by the model with datetime index.
+    """
+    results = pd.Series()
+
+    try:
+        for train, test in splitter.split(y):
+            # fitting
+            exo = X.iloc[train] if isinstance(X, pd.DataFrame) else None
+            model_trained = model.fit(y.iloc[train], X=exo, fh=splitter.fh)
+            # predicting
+            exo = X.iloc[test] if isinstance(X, pd.DataFrame) else None
+            pred = model_trained.predict(fh=splitter.fh, X=exo)
+            results = pd.concat((results, pred))  # type: ignore
+    # function can be interrupted at any time, Series with successfully predicted
+    # sets are returned, exception is raised to be handled in TSBacktesting component
+    except KeyboardInterrupt:
+        raise
+    finally:
+        return results
 
 
 class TSBacktesting:
@@ -112,9 +143,7 @@ class TSBacktesting:
             by=self._errors.columns.to_list(), ascending=True
         )
 
-    def evaluate(
-        self, y: pd.Series, X: Optional[pd.DataFrame] = None, **kwargs
-    ) -> pd.DataFrame:
+    def evaluate(self, y: pd.Series, X: Optional[pd.DataFrame] = None) -> pd.DataFrame:
         """
         Evaluate each model using time series backtesting and return the forecasts.
 
@@ -122,11 +151,9 @@ class TSBacktesting:
         ----------
         y : pd.Series
             The target time series to forecast.
-        X: pd.DataFrame
+        X: pd.DataFrame, optional
             DataFrame with exogenious variables as features passed
             to sktime evaluate function. It must have the same index as y.
-        kwargs:
-            Keyword parameters for sktime evaluate function
 
         Returns
         -------
@@ -138,10 +165,9 @@ class TSBacktesting:
         for i, (name, model) in enumerate(self._models.items(), start=1):
             logging.info(f"Model {i} -- {name}")
             try:
-                cv_res = _evaluate(model, splitter=self._splitter, y=y, X=X, **kwargs)
+                res[name] = _evaluate(y, model=model, splitter=self._splitter, X=X)
             except KeyboardInterrupt:
                 break
-            res[name] = pd.concat(iter(cv_res[Y_PRED]))
 
         results = pd.DataFrame(res)
         self._errors = self._calculate_errors(results, y)
