@@ -171,7 +171,7 @@ class OutlierFlagCreator(BaseTransformer):
             window_length=self.window_length, return_bool=self.return_bool
         )
         out = hf.fit_transform(df[data_ns.VALUE])
-        df[self.column] = list(map(int, out)) if self.return_bool else out
+        df[self.column] = list(map(int, out)) if self.return_bool else out  # type: ignore
         return df
 
 
@@ -192,9 +192,9 @@ class BaseFileProvider(BaseTransformer):
 
         if not file.exists():
             raise ValueError(f"file {file} does not exist")
-        self.file = file
         if file.suffix != ".csv":
-            raise NotImplementedError("Holiday file must be in csv format")
+            raise NotImplementedError("File must be in csv format")
+        self.file = file
 
     @property
     @abstractmethod
