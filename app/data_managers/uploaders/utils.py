@@ -1,25 +1,28 @@
 import os
+from pathlib import Path
+
+PATH = Path | str
 
 
-def create_directory(path: str) -> None:
+def create_directory(path: PATH) -> None:
     """
     Creates directory if it doesn't already exist
 
     Params:
-        path: str
-            path to the file
+        path: Path | str
+            path to the file or directory
 
-    Makes sure that the directory we will try to access exists
+    Makes sure that the target directory exists
     """
-    # if path exists
-    if os.path.exists(path):
-        return
+    path = Path(path)
 
-    split = path.split("/")
-    # if non-existing directory was passed
-    if len(split) > 1:
-        # seperate folder from file
-        folder_path = "/".join(split[:-1])
-        # if folder doesn't exist, create directory
-        if not os.path.exists(folder_path):
-            os.makedirs(folder_path)
+    # if path exists, it means there is a directory
+    if path.exists():
+        return
+    # if path is non-existing directory, create directory
+    if path.is_dir():
+        os.makedirs(path)
+    # if path is non-existing file, check if there is a directory, if not - create it
+    if path.is_file():
+        if not path.parent.exists():
+            os.makedirs(path.parent)
